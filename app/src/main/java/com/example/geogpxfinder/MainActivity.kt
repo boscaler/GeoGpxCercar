@@ -1,5 +1,6 @@
 package com.example.geogpxfinder
 
+import android.app.AlertDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -46,10 +47,18 @@ class MainActivity : AppCompatActivity() {
         editRadius = findViewById(R.id.editRadius)
         listResults = findViewById(R.id.listResults)
 
-        parseGeoIntent(intent)
+        try {
+            parseGeoIntent(intent)
+        } catch (e: Exception) {
+            showError(e)
+        }
 
         findViewById<Button>(R.id.btnSearch).setOnClickListener {
-            ensureAllFilesAccessThen { doSearch() }
+            try {
+                ensureAllFilesAccessThen { doSearch() }
+            } catch (e: Exception) {
+                showError(e)
+            }
         }
 
         listResults.setOnItemClickListener { _, _, position, _ ->
@@ -60,12 +69,25 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        parseGeoIntent(intent)
+        try {
+            parseGeoIntent(intent)
+        } catch (e: Exception) {
+            showError(e)
+        }
+    }
+
+    private fun showError(e: Throwable) {
+        AlertDialog.Builder(this)
+            .setTitle("Error")
+            .setMessage(e.toString() + "\n\n" + e.stackTrace.take(6).joinToString("\n"))
+            .setPositiveButton("OK", null)
+            .show()
     }
 
     /** Interpreta un intent geo:lat,lon o geo:0,0?q=lat,lon */
     private fun parseGeoIntent(intent: Intent?) {
         val data: Uri? = intent?.data
+        txtStatus.text = "Intent rebut: ${intent?.action} / data=$data"
         if (data == null || data.scheme != "geo") return
 
         val q = data.getQueryParameter("q")
@@ -111,13 +133,17 @@ class MainActivity : AppCompatActivity() {
         listResults.adapter = null
 
         CoroutineScope(Dispatchers.Main).launch {
-            val found = withContext(Dispatchers.IO) {
-                scanTracklogs(lat, lon, radius)
+            try {
+                val found = withContext(Dispatchers.IO) {
+                    scanTracklogs(lat, lon, radius)
+                }
+                matches = found.sortedBy { it.distanceKm }
+                txtStatus.text = "${matches.size} ruta/es trobades (toca per obrir a OruxMaps)"
+                val labels = matches.map { "${it.file.name}  (%.2f km)".format(it.distanceKm) }
+                listResults.adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_list_item_1, labels)
+            } catch (e: Exception) {
+                showError(e)
             }
-            matches = found.sortedBy { it.distanceKm }
-            txtStatus.text = "${matches.size} ruta/es trobades (toca per obrir a OruxMaps)"
-            val labels = matches.map { "${it.file.name}  (%.2f km)".format(it.distanceKm) }
-            listResults.adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_list_item_1, labels)
         }
     }
 
@@ -137,7 +163,6 @@ class MainActivity : AppCompatActivity() {
         return result
     }
 
-    /** Llegeix els trkpt/wpt del gpx i retorna la distància mínima al centre, o null si cap punt és vàlid */
     private fun closestPointDistanceKm(file: File, lat: Double, lon: Double): Double? {
         var minDist: Double? = null
         try {
