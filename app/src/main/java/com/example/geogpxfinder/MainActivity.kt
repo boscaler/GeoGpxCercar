@@ -158,6 +158,7 @@ class MainActivity : AppCompatActivity() {
                     val (lat, lon) = coord
                     val carpeta = java.io.File(android.os.Environment.getExternalStorageDirectory(), "oruxmaps/tracklogs")
                     val gpxFiles = buscarFitxersGpx(carpeta)
+                    Toast.makeText(this, "GPX trobats: ${gpxFiles.size}, carpeta existeix: ${carpeta.exists()}", Toast.LENGTH_LONG).show()
                     val trobats = gpxFiles.filter { gpxTeUnPuntDinsRadi(it, lat, lon, radiusKm) }
 
                     val missatge = if (trobats.isEmpty()) {
