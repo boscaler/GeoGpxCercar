@@ -135,11 +135,8 @@ class MainActivity : AppCompatActivity() {
         txtStatus.text = "Intent rebut: ${intent?.action} / data=$data"
         if (data == null || data.scheme != "geo") return
 
-        val q = data.query
-            ?.split("&")
-            ?.firstOrNull { it.startsWith("q=") }
-            ?.substringAfter("q=")
-            ?.let { Uri.decode(it) }
+        val q = data?.schemeSpecificPart
+            ?.substringBefore("?")
             Toast.makeText(this, "data = $data", Toast.LENGTH_LONG).show()
         val radiusInput = EditText(this)
         radiusInput.setText("5")
