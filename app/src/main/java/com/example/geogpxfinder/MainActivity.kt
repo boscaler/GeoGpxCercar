@@ -76,6 +76,51 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun distanciaKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val results = FloatArray(1)
+        android.location.Location.distanceBetween(lat1, lon1, lat2, lon2, results)
+        return results[0] / 1000.0
+    }
+   
+    private fun parseCoordenada(q: String?): Pair<Double, Double>? {
+        if (q == null) return null
+        val parts = q.split(",")
+        if (parts.size < 2) return null
+        val lat = parts[0].trim().toDoubleOrNull() ?: return null
+        val lon = parts[1].trim().toDoubleOrNull() ?: return null
+        return Pair(lat, lon)
+    }
+    
+    private fun buscarFitxersGpx(carpeta: java.io.File): List<java.io.File> {
+        val trobats = mutableListOf<java.io.File>()
+        val fitxers = carpeta.listFiles() ?: return trobats
+        for (f in fitxers) {
+            if (f.isDirectory) {
+                trobats.addAll(buscarFitxersGpx(f))
+            } else if (f.name.endsWith(".gpx", ignoreCase = true)) {
+                trobats.add(f)
+            }
+        }
+        return trobats
+    }
+   
+    private fun gpxTeUnPuntDinsRadi(fitxer: java.io.File, latCentre: Double, lonCentre: Double, radiKm: Double): Boolean {
+        try {
+            val text = fitxer.readText()
+            val regex = Regex("lat=\"([-0-9.]+)\"\\s+lon=\"([-0-9.]+)\"")
+            for (match in regex.findAll(text)) {
+                val lat = match.groupValues[1].toDoubleOrNull() ?: continue
+                val lon = match.groupValues[2].toDoubleOrNull() ?: continue
+                if (distanciaKm(latCentre, lonCentre, lat, lon) <= radiKm) {
+                    return true
+                }
+            }
+        } catch (e: Exception) {
+            // fitxer il·legible, l'ignorem
+        }
+        return false
+    }
+    
     private fun showError(e: Throwable) {
         AlertDialog.Builder(this)
             .setTitle("Error")
@@ -104,7 +149,31 @@ class MainActivity : AppCompatActivity() {
             .setView(radiusInput)
             .setPositiveButton("Buscar") { _, _ ->
                 val radiusKm = radiusInput.text.toString().toDoubleOrNull() ?: 5.0
-                // aquí cridarem la cerca de GPX amb 'q' i 'radiusKm'
+                val coord = parseCoordenada(q)
+                if (coord == null) {
+                    AlertDialog.Builder(this)
+                        .setTitle("Error")
+                        .setMessage("No s'ha pogut llegir la coordenada")
+                        .setPositiveButton("OK", null)
+                        .show()
+                } else {
+                    val (lat, lon) = coord
+                    val carpeta = java.io.File(android.os.Environment.getExternalStorageDirectory(), "oruxmaps/tracklogs")
+                    val gpxFiles = buscarFitxersGpx(carpeta)
+                    val trobats = gpxFiles.filter { gpxTeUnPuntDinsRadi(it, lat, lon, radiusKm) }
+
+                    val missatge = if (trobats.isEmpty()) {
+                        "No s'ha trobat cap ruta dins el radi indicat"
+                    } else {
+                        trobats.joinToString("\n") { it.name }
+                    }
+
+                    AlertDialog.Builder(this)
+                        .setTitle("Rutes trobades (${trobats.size})")
+                        .setMessage(missatge)
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
             }
             .setNegativeButton("Cancel·lar", null)
             .show()    
