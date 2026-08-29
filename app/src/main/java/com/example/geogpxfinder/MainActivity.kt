@@ -140,7 +140,7 @@ class MainActivity : AppCompatActivity() {
             ?.firstOrNull { it.startsWith("q=") }
             ?.substringAfter("q=")
             ?.let { Uri.decode(it) }
-            Toast.makeText(this, "q = $q", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "data = $data", Toast.LENGTH_LONG).show()
         val radiusInput = EditText(this)
         radiusInput.setText("5")
         radiusInput.inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
