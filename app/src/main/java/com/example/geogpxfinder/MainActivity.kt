@@ -90,7 +90,11 @@ class MainActivity : AppCompatActivity() {
         txtStatus.text = "Intent rebut: ${intent?.action} / data=$data"
         if (data == null || data.scheme != "geo") return
 
-        val q = data.getQueryParameter("q")
+        val q = data.query
+            ?.split("&")
+            ?.firstOrNull { it.startsWith("q=") }
+            ?.substringAfter("q=")
+            ?.let { Uri.decode(it) }
         val raw = if (!q.isNullOrBlank()) q else data.schemeSpecificPart.substringBefore("?")
 
         val parts = raw.split(",")
