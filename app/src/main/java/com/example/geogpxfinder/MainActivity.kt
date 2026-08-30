@@ -46,7 +46,11 @@ class MainActivity : AppCompatActivity() {
         editRadius = findViewById(R.id.editRadius)
         listResults = findViewById(R.id.listResults)
 
-        parseGeoIntent(intent)
+        try {
+            parseGeoIntent(intent)
+        } catch (e: Exception) {
+            showError(e)
+        }
 
         findViewById<Button>(R.id.btnSearch).setOnClickListener {
             ensureAllFilesAccessThen { doSearch() }
@@ -60,7 +64,11 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        parseGeoIntent(intent)
+        try {
+            parseGeoIntent(intent)
+        } catch (e: Exception) {
+            showError(e)
+        }
     }
 
     /** Interpreta un intent geo:lat,lon o geo:0,0?q=lat,lon */
@@ -68,7 +76,7 @@ class MainActivity : AppCompatActivity() {
         val data: Uri? = intent?.data
         if (data == null || data.scheme != "geo") return
 
-        val q = data.getQueryParameter("q")
+        val q = try { data.getQueryParameter("q") } catch (e: Exception) { null }
         val raw = if (!q.isNullOrBlank()) q else data.schemeSpecificPart.substringBefore("?")
 
         val parts = raw.split(",")
@@ -186,5 +194,12 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Toast.makeText(this, "No s'ha pogut obrir a OruxMaps: ${e.message}", Toast.LENGTH_LONG).show()
         }
+    }
+    private fun showError(e: Throwable) {
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Error")
+            .setMessage(e.toString() + "\n\n" + e.stackTrace.take(6).joinToString("\n"))
+            .setPositiveButton("OK", null)
+            .show()
     }
 }
