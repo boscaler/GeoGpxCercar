@@ -1,6 +1,5 @@
 package com.example.geogpxfinder
 
-import android.app.AlertDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -47,18 +46,10 @@ class MainActivity : AppCompatActivity() {
         editRadius = findViewById(R.id.editRadius)
         listResults = findViewById(R.id.listResults)
 
-        try {
-            parseGeoIntent(intent)
-        } catch (e: Exception) {
-            showError(e)
-        }
+        parseGeoIntent(intent)
 
         findViewById<Button>(R.id.btnSearch).setOnClickListener {
-            try {
-                ensureAllFilesAccessThen { doSearch() }
-            } catch (e: Exception) {
-                showError(e)
-            }
+            ensureAllFilesAccessThen { doSearch() }
         }
 
         listResults.setOnItemClickListener { _, _, position, _ ->
@@ -69,113 +60,15 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        try {
-            parseGeoIntent(intent)
-        } catch (e: Exception) {
-            showError(e)
-        }
-    }
-
-    private fun distanciaKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-        val results = FloatArray(1)
-        android.location.Location.distanceBetween(lat1, lon1, lat2, lon2, results)
-        return results[0] / 1000.0
-    }
-   
-    private fun parseCoordenada(q: String?): Pair<Double, Double>? {
-        if (q == null) return null
-        val parts = q.split(",")
-        if (parts.size < 2) return null
-        val lat = parts[0].trim().toDoubleOrNull() ?: return null
-        val lon = parts[1].trim().toDoubleOrNull() ?: return null
-        return Pair(lat, lon)
-    }
-    
-    private fun buscarFitxersGpx(carpeta: java.io.File): List<java.io.File> {
-        val trobats = mutableListOf<java.io.File>()
-        val fitxers = carpeta.listFiles() ?: return trobats
-        for (f in fitxers) {
-            if (f.isDirectory) {
-                trobats.addAll(buscarFitxersGpx(f))
-            } else if (f.name.endsWith(".gpx", ignoreCase = true)) {
-                trobats.add(f)
-            }
-        }
-        return trobats
-    }
-   
-    private fun gpxTeUnPuntDinsRadi(fitxer: java.io.File, latCentre: Double, lonCentre: Double, radiKm: Double): Boolean {
-        try {
-            val text = fitxer.readText()
-            val regex = Regex("lat=\"([-0-9.]+)\"\\s+lon=\"([-0-9.]+)\"")
-            for (match in regex.findAll(text)) {
-                val lat = match.groupValues[1].toDoubleOrNull() ?: continue
-                val lon = match.groupValues[2].toDoubleOrNull() ?: continue
-                if (distanciaKm(latCentre, lonCentre, lat, lon) <= radiKm) {
-                    return true
-                }
-            }
-        } catch (e: Exception) {
-            // fitxer il·legible, l'ignorem
-        }
-        return false
-    }
-    
-    private fun showError(e: Throwable) {
-        AlertDialog.Builder(this)
-            .setTitle("Error")
-            .setMessage(e.toString() + "\n\n" + e.stackTrace.take(6).joinToString("\n"))
-            .setPositiveButton("OK", null)
-            .show()
+        parseGeoIntent(intent)
     }
 
     /** Interpreta un intent geo:lat,lon o geo:0,0?q=lat,lon */
     private fun parseGeoIntent(intent: Intent?) {
         val data: Uri? = intent?.data
-        txtStatus.text = "Intent rebut: ${intent?.action} / data=$data"
         if (data == null || data.scheme != "geo") return
 
-        val q = data?.schemeSpecificPart
-            ?.substringBefore("?")
-            Toast.makeText(this, "data = $data", Toast.LENGTH_LONG).show()
-        val radiusInput = EditText(this)
-        radiusInput.setText("5")
-        radiusInput.inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
-
-        AlertDialog.Builder(this)
-            .setTitle("Radi de cerca (km)")
-            .setView(radiusInput)
-            .setPositiveButton("Buscar") { _, _ ->
-                val radiusKm = radiusInput.text.toString().toDoubleOrNull() ?: 5.0
-                val coord = parseCoordenada(q)
-                if (coord == null) {
-                    AlertDialog.Builder(this)
-                        .setTitle("Error")
-                        .setMessage("No s'ha pogut llegir la coordenada")
-                        .setPositiveButton("OK", null)
-                        .show()
-                } else {
-                    val (lat, lon) = coord
-                    val carpeta = java.io.File(android.os.Environment.getExternalStorageDirectory(), "oruxmaps/tracklogs")
-                    val gpxFiles = buscarFitxersGpx(carpeta)
-                    Toast.makeText(this, "GPX trobats: ${gpxFiles.size}, carpeta existeix: ${carpeta.exists()}", Toast.LENGTH_LONG).show()
-                    val trobats = gpxFiles.filter { gpxTeUnPuntDinsRadi(it, lat, lon, radiusKm) }
-
-                    val missatge = if (trobats.isEmpty()) {
-                        "No s'ha trobat cap ruta dins el radi indicat"
-                    } else {
-                        trobats.joinToString("\n") { it.name }
-                    }
-
-                    AlertDialog.Builder(this)
-                        .setTitle("Rutes trobades (${trobats.size})")
-                        .setMessage(missatge)
-                        .setPositiveButton("OK", null)
-                        .show()
-                }
-            }
-            .setNegativeButton("Cancel·lar", null)
-            .show()    
+        val q = data.getQueryParameter("q")
         val raw = if (!q.isNullOrBlank()) q else data.schemeSpecificPart.substringBefore("?")
 
         val parts = raw.split(",")
@@ -218,17 +111,13 @@ class MainActivity : AppCompatActivity() {
         listResults.adapter = null
 
         CoroutineScope(Dispatchers.Main).launch {
-            try {
-                val found = withContext(Dispatchers.IO) {
-                    scanTracklogs(lat, lon, radius)
-                }
-                matches = found.sortedBy { it.distanceKm }
-                txtStatus.text = "${matches.size} ruta/es trobades (toca per obrir a OruxMaps)"
-                val labels = matches.map { "${it.file.name}  (%.2f km)".format(it.distanceKm) }
-                listResults.adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_list_item_1, labels)
-            } catch (e: Exception) {
-                showError(e)
+            val found = withContext(Dispatchers.IO) {
+                scanTracklogs(lat, lon, radius)
             }
+            matches = found.sortedBy { it.distanceKm }
+            txtStatus.text = "${matches.size} ruta/es trobades (toca per obrir a OruxMaps)"
+            val labels = matches.map { "${it.file.name}  (%.2f km)".format(it.distanceKm) }
+            listResults.adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_list_item_1, labels)
         }
     }
 
@@ -248,6 +137,7 @@ class MainActivity : AppCompatActivity() {
         return result
     }
 
+    /** Llegeix els trkpt/wpt del gpx i retorna la distància mínima al centre, o null si cap punt és vàlid */
     private fun closestPointDistanceKm(file: File, lat: Double, lon: Double): Double? {
         var minDist: Double? = null
         try {
