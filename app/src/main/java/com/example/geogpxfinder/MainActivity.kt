@@ -38,6 +38,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnSort: Button
     private lateinit var btnOpenSelected: Button
     private lateinit var btnSelectAll: Button
+    private lateinit var btnHelp: Button
     private lateinit var btnClearSelected: Button
     private lateinit var btnDeleteSelected: Button
     private var sortByDate = false
@@ -58,6 +59,7 @@ class MainActivity : AppCompatActivity() {
         btnSort = findViewById(R.id.btnSort)
         btnOpenSelected = findViewById(R.id.btnOpenSelected)
         btnSelectAll = findViewById(R.id.btnSelectAll)
+        btnHelp = findViewById(R.id.btnHelp)
         btnClearSelected = findViewById(R.id.btnClearSelected)
         try {
             parseGeoIntent(intent)
@@ -79,10 +81,8 @@ class MainActivity : AppCompatActivity() {
             openSelected()
         }
 
-        btnSelectAll.setOnClickListener {
-            for (i in 0 until listResults.count) {
-                listResults.setItemChecked(i, true)
-            }
+        btnHelp.setOnClickListener {
+            mostrarAjuda()
         }
 
         btnClearSelected.setOnClickListener {
@@ -327,6 +327,25 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Toast.makeText(this, "No s'ha pogut obrir a OruxMaps: ${e.message}", Toast.LENGTH_LONG).show()
         }
+    }
+    private fun mostrarAjuda() {
+        val text = """
+            Com funciona Geo GPX Cercar:
+
+            1. Envia una coordenada des d'OruxMaps a aquesta app (Compartir mapa / Comparteix la posició del mapa / Com geo: Intent).
+            2. Indica el radi de cerca en km (per defecte, 5).
+            3. Prem "Cercar": es buscaran totes les rutes GPX de /oruxmaps/tracklogs (i subcarpetes) que tinguin algun punt dins d'aquest radi.
+            4. Pots ordenar els resultats per distància a la coordenada enviada o per la data interna de la ruta amb el botó corresponent.
+            5. Marca les rutes que t'interessin (o prem "Seleccionar totes").
+            6. Prem "Copiar a seleccionades": es copiaran a una carpeta especial i s'obrirà OruxMaps automàticament perquè les importis totes de cop.
+            7. "Eliminar seleccionades" buida aquesta carpeta especial (no toca les rutes originals).
+        """.trimIndent()
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Ajuda")
+            .setMessage(text)
+            .setPositiveButton("D'acord", null)
+            .show()
     }
     private fun showError(e: Throwable) {
         android.app.AlertDialog.Builder(this)
