@@ -81,6 +81,12 @@ class MainActivity : AppCompatActivity() {
             openSelected()
         }
 
+        btnSelectAll.setOnClickListener {
+            for (i in 0 until listResults.count) {
+                listResults.setItemChecked(i, true)
+            }
+        }
+
         btnHelp.setOnClickListener {
             mostrarAjuda()
         }
